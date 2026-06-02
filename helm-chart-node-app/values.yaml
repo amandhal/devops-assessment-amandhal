@@ -1,0 +1,32 @@
+# replicaCount: 1
+
+# image:
+#   repository: nginx
+#   tag: ""
+
+# imagePullSecrets: []
+
+# podLabels: {}
+
+# service:
+#   type: ClusterIP
+#   port: 80
+
+# ingress:
+#   className: ""
+#   annotations: {}
+
+# resources: {}
+
+# livenessProbe:
+#   httpGet:
+#     path: /
+#     port: http
+# readinessProbe:
+#   httpGet:
+#     path: /
+#     port: http
+
+# autoscaling:
+#   minReplicas: 1
+#   maxReplicas: 100

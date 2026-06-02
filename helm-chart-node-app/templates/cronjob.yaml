@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: api-health-check-cronjob
+spec:
+  schedule: "*/5 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: curl
+            image: curlimages/curl
+            imagePullPolicy: IfNotPresent
+            envFrom:
+            - configMapRef:
+                name: node-app-configmap
+            command: ["/bin/sh"]
+            args: ["-c", "curl $BACKEND_URL/health"]
+          restartPolicy: Never
