@@ -55,7 +55,7 @@ module "eks" {
   eks_managed_node_groups = {
     eks-amandhal = {
       instance_types = ["c7i-flex.large"]
-      min_size       = 1
+      min_size       = 2
       desired_size   = 2
       max_size       = 5
 
