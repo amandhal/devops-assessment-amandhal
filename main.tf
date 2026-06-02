@@ -31,7 +31,7 @@ module "eks" {
   version = "21.23.0"
 
   name               = var.cluster_name
-  kubernetes_version = "1.36"
+  kubernetes_version = "1.35"
 
   addons = {
     coredns = {}
@@ -86,7 +86,10 @@ module "add-ons" {
   source       = "${path.module}/custom-modules/helm-add-ons"
   cluster_name = module.eks.cluster_name
   aws_region   = var.aws_region
-  depends_on   = [module.eks]
+  depends_on = [
+    module.eks,
+    aws_eks_pod_identity_association.cluster_autoscaler
+  ]
 }
 
 resource "aws_eks_pod_identity_association" "cluster_autoscaler" {
@@ -94,5 +97,4 @@ resource "aws_eks_pod_identity_association" "cluster_autoscaler" {
   namespace       = "kube-system"
   service_account = "cluster-autoscaler"
   role_arn        = module.iam-role.arn
-  depends_on      = [module.add-ons]
 }
