@@ -74,7 +74,7 @@ module "eks" {
 
 module "iam-role" {
   source  = "clouddrove/iam-role/aws"
-  version = "1.3.5"
+  version = "1.3.4"
 
   name               = "cluster-autoscaler"
   assume_role_policy = file("${path.module}/iam-policies/cluster-autoscaler-trust-policy.json")
