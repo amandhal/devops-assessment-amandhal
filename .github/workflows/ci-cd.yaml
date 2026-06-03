@@ -1,0 +1,123 @@
+name: A multi-job workflow to build, push, deploy & test the application.
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+env:
+  FE_REPO: node-app-frontend
+  BE_REPO: node-app-backend
+  NAMESPACE: node-app
+
+jobs:
+  continuous-integration:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v4
+
+      - name: AWS Configure
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Validate
+        run: terraform -chdir=terraform validate
+
+      - name: Docker Build Test & Cleanup
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/$FE_REPO:test docker-node-app/frontend
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/$BE_REPO:test docker-node-app/backend
+          docker system prune -af
+
+      - name: Setup helm
+        uses: azure/setup-helm@v5
+
+      - name: Kubernetes Lint
+        run: helm lint helm-chart-node-app
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: helm-chart-node-app
+          path: helm-chart-node-app
+
+  continuous-deployment:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v4
+
+      - name: AWS Configure
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Terraform Init
+        run: terraform -chdir=terraform init
+
+      - name: Terraform Apply
+        run: terraform -chdir=terraform apply -auto-approve
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      
+      - name: Docker Build
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/$FE_REPO:${{ github.sha }} docker-node-app/frontend
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/$BE_REPO:${{ github.sha }} docker-node-app/backend
+
+      - name: Docker Push & Cleanup
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/$FE_REPO:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/$BE_REPO:${{ github.sha }}
+          docker system prune -af
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Setup helm
+        uses: azure/setup-helm@v5
+
+      - name: Update kubeconfig
+        run: |
+          AWS_REGION=$(terraform -chdir=terraform output -raw aws_region)
+          CLUSTER_NAME=$(terraform -chdir=terraform output -raw cluster_name)
+          aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
+
+      - name: Deploy to K8s Cluster
+        run: helm upgrade --install node-app ./helm-chart-node-app -n $NAMESPACE --create-namespace=true --set image.frontend.tag=${{ github.sha }} --set image.backend.tag=${{ github.sha }}
+      
+      - name: Rollout verification
+        run: |
+          kubectl rollout status deployment/frontend-deployment -n $NAMESPACE
+          kubectl rollout status deployment/backend-deployment -n $NAMESPACE
+
+      - name: Smoke test
+        run: |
+          kubectl run be-smoke-test --rm --restart=Never --image=curlimages/curl -n $NAMESPACE -- curl -f http://backend-service/health
+          kubectl run fe-smoke-test --rm --restart=Never --image=curlimages/curl -n $NAMESPACE -- curl -f http://frontend-service

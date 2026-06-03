@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: node-app-backend
-        image: "{{ .Values.image.backend }}:{{ .Values.image.tag }}"
+        image: "{{ .Values.image.backend.repo }}:{{ .Values.image.backend.tag }}"
         imagePullPolicy: Always
         resources:
           requests:

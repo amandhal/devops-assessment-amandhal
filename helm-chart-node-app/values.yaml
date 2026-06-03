@@ -1,6 +1,9 @@
 replicaCount: 2
 
 image:
-  frontend: amandhal/node-app-frontend
-  backend: amandhal/node-app-backend
-  tag: "1.0.0"
+  frontend: 
+    repo: amandhal/node-app-frontend
+    tag: "1.0.0"
+  backend: 
+    repo: amandhal/node-app-backend
+    tag: "1.0.0"
