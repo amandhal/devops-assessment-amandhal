@@ -119,5 +119,6 @@ jobs:
 
       - name: Smoke test
         run: |
-          kubectl run be-smoke-test --rm --restart=Never --image=curlimages/curl -n $NAMESPACE -- curl -f http://backend-service/health
-          kubectl run fe-smoke-test --rm --restart=Never --image=curlimages/curl -n $NAMESPACE -- curl -f http://frontend-service
+          kubectl run be-smoke-test --attach --restart=Never --image=curlimages/curl -n $NAMESPACE -- curl -f http://backend-service/health
+          kubectl run fe-smoke-test --attach --restart=Never --image=curlimages/curl -n $NAMESPACE -- curl -f http://frontend-service
+          kubectl delete po be-smoke-test fe-smoke-test -n $NAMESPACE
