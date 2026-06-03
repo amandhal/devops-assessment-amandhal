@@ -32,12 +32,8 @@ const latency = new client.Histogram({
 register.registerMetric(requestCounter);
 register.registerMetric(latency);
 
-let users = [
-  {
-    id: 1,
-    name: "Aman"
-  }
-];
+const HOSTNAME =
+  process.env.HOSTNAME || "unknown";
 
 app.use((req, res, next) => {
   requestCounter.inc();
@@ -54,38 +50,40 @@ app.use((req, res, next) => {
 app.get("/health", (req, res) => {
   res.json({
     status: "UP",
-    timestamp: new Date()
+    timestamp: new Date(),
+    pod: HOSTNAME
   });
 });
 
 app.get("/stats", (req, res) => {
   res.json({
-    requestCount: requestCounter.hashMap[""]?.value || 0,
-    userCount: users.length
+    pod: HOSTNAME
   });
 });
 
-app.get("/api/users", (req, res) => {
-  res.json(users);
-});
+app.get("/slow", async (req, res) => {
+  await new Promise((resolve) =>
+    setTimeout(resolve, 3000)
+  );
 
-app.post("/api/users", (req, res) => {
-  const user = {
-    id: Date.now(),
-    name: req.body.name
-  };
-
-  users.push(user);
-
-  res.status(201).json(user);
+  res.json({
+    message: "Slow response completed",
+    pod: HOSTNAME
+  });
 });
 
 app.get("/error", (req, res) => {
-  throw new Error("Intentional error");
+  throw new Error(
+    "Intentional error for Kibana demo"
+  );
 });
 
 app.get("/metrics", async (req, res) => {
-  res.set("Content-Type", register.contentType);
+  res.set(
+    "Content-Type",
+    register.contentType
+  );
+
   res.end(await register.metrics());
 });
 
