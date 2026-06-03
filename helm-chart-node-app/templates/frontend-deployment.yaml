@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: node-app-frontend
-        image: "{{ .Values.image.frontend }}:{{ .Values.image.tag }}"
+        image: "{{ .Values.image.frontend.repo }}:{{ .Values.image.frontend.tag }}"
         imagePullPolicy: Always
         env:
           - name: BACKEND_URL
