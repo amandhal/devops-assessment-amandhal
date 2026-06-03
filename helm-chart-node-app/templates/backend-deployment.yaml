@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: backend-deployment
 spec:
-  replicas: 2
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: backend
@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: node-app-backend
-        image: amandhal/node-app-backend:1.0.0
+        image: "{{ .Values.image.backend }}:{{ .Values.image.tag }}"
         imagePullPolicy: Always
         resources:
           requests:

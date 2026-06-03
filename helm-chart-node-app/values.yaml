@@ -1,32 +1,6 @@
-# replicaCount: 1
+replicaCount: 2
 
-# image:
-#   repository: nginx
-#   tag: ""
-
-# imagePullSecrets: []
-
-# podLabels: {}
-
-# service:
-#   type: ClusterIP
-#   port: 80
-
-# ingress:
-#   className: ""
-#   annotations: {}
-
-# resources: {}
-
-# livenessProbe:
-#   httpGet:
-#     path: /
-#     port: http
-# readinessProbe:
-#   httpGet:
-#     path: /
-#     port: http
-
-# autoscaling:
-#   minReplicas: 1
-#   maxReplicas: 100
+image:
+  frontend: amandhal/node-app-frontend
+  backend: amandhal/node-app-backend
+  tag: "1.0.0"

@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: frontend-deployment
 spec:
-  replicas: 2
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: frontend
@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: node-app-frontend
-        image: amandhal/node-app-frontend:1.0.0
+        image: "{{ .Values.image.frontend }}:{{ .Values.image.tag }}"
         imagePullPolicy: Always
         env:
           - name: BACKEND_URL
