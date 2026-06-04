@@ -6,7 +6,10 @@ const pinoHttp = require("pino-http");
 const app = express();
 
 const logger = pino({
-  level: "info"
+  level: "info",
+  base: {
+    pod: process.env.HOSTNAME || "unknown"
+  }
 });
 
 app.use(express.json());
