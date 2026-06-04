@@ -6,4 +6,11 @@ resource "helm_release" "kube_prometheus_stack" {
 
   namespace        = "monitoring"
   create_namespace = true
+
+  set = [
+    {
+      name  = "grafana.service.type"
+      value = "LoadBalancer"
+    }
+  ]
 }
