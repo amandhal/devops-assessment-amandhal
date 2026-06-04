@@ -12,6 +12,7 @@ env:
   FE_REPO: node-app-frontend
   BE_REPO: node-app-backend
   NAMESPACE: node-app
+  RELEASE_NAME: node-app
 
 jobs:
   continuous-integration:
@@ -33,10 +34,10 @@ jobs:
           aws-region: ap-south-1
 
       - name: Terraform Init
-        run: terraform -chdir=terraform init
+        run: terraform -chdir=terraform-eks init
 
       - name: Terraform Validate
-        run: terraform -chdir=terraform validate
+        run: terraform -chdir=terraform-eks validate
 
       - name: Docker Build Test & Cleanup
         run: |
@@ -75,10 +76,10 @@ jobs:
           aws-region: ap-south-1
 
       - name: Terraform Init
-        run: terraform -chdir=terraform init
+        run: terraform -chdir=terraform-eks init
 
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve
+        run: terraform -chdir=terraform-eks apply -auto-approve
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
@@ -110,7 +111,7 @@ jobs:
           aws eks update-kubeconfig --region $AWS_REGION --name $CLUSTER_NAME
 
       - name: Deploy to K8s Cluster
-        run: helm upgrade --install node-app ./helm-chart-node-app -n $NAMESPACE --create-namespace=true --set image.frontend.tag=${{ github.sha }} --set image.backend.tag=${{ github.sha }}
+        run: helm upgrade --install $RELEASE_NAME ./helm-chart-node-app -n $NAMESPACE --create-namespace=true --set image.frontend.tag=${{ github.sha }} --set image.backend.tag=${{ github.sha }}
       
       - name: Rollout verification
         run: |
