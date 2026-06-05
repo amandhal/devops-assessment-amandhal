@@ -1,296 +1,466 @@
-# DevOps Assessment - AWS EKS Infrastructure with CI/CD Automation
+# EKS Observability & CI/CD DevOps Platform
 
-A production-grade infrastructure-as-code project demonstrating automated provisioning and deployment of a microservices application on AWS EKS with complete CI/CD pipeline.
+## Table of Contents
+
+* [Project Overview](#project-overview)
+
+  * [Key Components](#key-components)
+
+    * [Infrastructure (Terraform)](#infrastructure-terraform)
+    * [IAM & Pod Identity](#iam--pod-identity)
+    * [Application](#application)
+* [Kubernetes Deployment](#kubernetes-deployment)
+
+  * [Workload Resources](#workload-resources)
+  * [Reliability Features](#reliability-features)
+  * [Scaling Features](#scaling-features)
+  * [Operations Features](#operations-features)
+* [Monitoring Stack](#monitoring-stack)
+
+  * [Prometheus](#prometheus)
+  * [Grafana Dashboards](#grafana-dashboards)
+* [Logging Stack (EFK)](#logging-stack-efk)
+
+  * [Log Collection Flow](#log-collection-flow)
+  * [Kibana Dashboards](#kibana-dashboards)
+* [CI/CD Pipeline](#cicd-pipeline)
+
+  * [CI Pipeline](#ci-pipeline)
+  * [CD Pipeline](#cd-pipeline)
+* [Terraform Deployment](#terraform-deployment)
+
+  * [Prerequisites](#prerequisites)
+  * [Remote State Setup](#remote-state-setup)
+  * [Deploy Infrastructure](#deploy-infrastructure)
+* [Application Deployment](#application-deployment)
+* [Architecture Overview](#architecture-overview)
+* [Challenges & Solutions](#challenges--solutions)
+
+  * [CloudDrove IAM Module Compatibility Issue](#1-clouddrove-iam-module-compatibility-issue)
+  * [Cluster Autoscaler Permission Issue](#2-cluster-autoscaler-permission-issue)
+* [Future Improvements](#future-improvements)
+
+  * [Enable HTTPS Using cert-manager](#enable-https-using-cert-manager)
+  * [Additional Enhancements](#additional-enhancements)
+* [Technologies Used](#technologies-used)
+
+  * [Cloud & Infrastructure](#cloud--infrastructure)
+  * [Containerization](#containerization)
+  * [Kubernetes](#kubernetes)
+  * [Monitoring](#monitoring)
+  * [Logging](#logging)
+  * [CI/CD](#cicd)
+  * [Application](#application-1)
+* [References](#references)
+
+---
 
 ## Project Overview
 
-This project automates the entire lifecycle of deploying a containerized Node.js application to AWS EKS, including:
-- Infrastructure provisioning using Terraform
-- Kubernetes cluster setup with EKS
-- Microservices deployment with Helm
-- Continuous Integration/Continuous Deployment with GitHub Actions
-- Auto-scaling and monitoring
+This project demonstrates the deployment of a Node.js application on Amazon EKS using Infrastructure as Code, automated CI/CD pipelines, monitoring, logging, and autoscaling capabilities.
 
-## Architecture
-<img width="2460" height="2312" alt="image" src="https://github.com/user-attachments/assets/3619033d-551c-45dc-a944-ccec2522645e" />
+The infrastructure is provisioned using Terraform and deployed on AWS EKS. The application is packaged and deployed through a custom Helm chart and continuously delivered using GitHub Actions.
 
-### Infrastructure Layer (Terraform - HCL)
-- **AWS EKS Cluster**: Managed Kubernetes using official AWS and EKS Terraform modules
-- **IAM Roles**: CloudDrove's IAM role module for secure access management
-- **Custom Components**:
-  - Cluster Autoscaler for dynamic node scaling
-  - NGINX Ingress Controller for L7 routing
-  - Metrics Server for resource monitoring
-  - Network Load Balancer (NLB) for external access
+### Key Components
 
-### Application Layer (Node.js)
-- Frontend and Backend microservices
-- 2 Kubernetes Deployments (separate frontend & backend)
-- 2 ClusterIP Services for internal service discovery
-- Horizontal Pod Autoscaler (HPA) for automatic scaling on both deployments
+#### Infrastructure (Terraform)
 
-### Container & Deployment
-- Docker containerization of Node applications
-- Images pushed to Docker Hub/ECR
-- Custom Helm charts for Kubernetes deployment
-- Ingress configuration with NLB for external user access
+The EKS infrastructure is created using the official Terraform AWS modules:
 
-## Scaling Configuration
+* AWS EKS Terraform Module
+* AWS VPC Terraform Module
 
-- **Pod Auto-scaling**: HPA monitors CPU/memory metrics and scales replicas
-- **Node Auto-scaling**: Cluster Autoscaler adjusts node count based on pending pods
-- **External Load Balancing**: NLB distributes traffic across backend instances
+These modules automatically provision:
 
+* VPC
+* Public and Private Subnets
+* Route Tables
+* NAT Gateway
+* Security Groups
+* EKS Control Plane
+* Managed Node Groups
 
-## 🛠️ Technology Stack
+Additionally, a custom Terraform module was created to deploy operational tooling directly into the cluster using the Terraform Helm Provider:
 
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| Infrastructure as Code | Terraform | Cloud resource provisioning |
-| Container Orchestration | AWS EKS | Managed Kubernetes |
-| Containerization | Docker | Application packaging |
-| Package Management | Helm | Kubernetes deployments |
-| External Access | NGINX Ingress Controller | Application routing |
-| Auto-scaling | HPA + Cluster Autoscaler | Dynamic resource scaling |
-| Monitoring | Metrics Server | Resource metrics collection |
-| Application Framework | Node.js | Microservices |
-| CI/CD | GitHub Actions | Automated deployment pipeline |
+* Cluster Autoscaler
+* Prometheus
+* Grafana
+* EFK Stack (Elasticsearch, Fluent Bit, Kibana)
 
+#### IAM & Pod Identity
 
-# CI/CD Pipeline Overview
+To securely grant AWS permissions to Kubernetes workloads:
 
-This GitHub Actions workflow automates the validation, deployment, and verification of the application using separate Continuous Integration (CI) and Continuous Deployment (CD) stages.
+* CloudDrove's IAM Role Terraform Module was used to create IAM roles.
+* Required AWS IAM policies were attached to the roles.
+* `aws_eks_pod_identity_association` resources were used to associate IAM roles with Kubernetes Service Accounts.
+* Cluster Autoscaler receives permissions through Pod Identity rather than static AWS credentials.
 
-## Continuous Integration (Pull Requests)
+#### Application
 
-The CI pipeline is triggered whenever a Pull Request is opened against the `main` branch.
+A custom Node.js application was developed with:
 
-### Workflow Steps
+* `/health` endpoint for health checks
+* `/metrics` endpoint for Prometheus metrics scraping
+* Structured JSON logging
+* Request tracking and metrics collection
 
-1. Checkout the repository source code.
-2. Configure Terraform and initialize the infrastructure code.
-3. Validate Terraform configurations.
-4. Build frontend and backend Docker images to verify successful image creation.
-5. Lint the Helm chart to validate Kubernetes manifests and chart structure.
-6. Upload the Helm chart as a workflow artifact for inspection.
-
-This stage ensures that infrastructure code, application containers, and Kubernetes manifests are valid before merging changes into the main branch.
-
----
-
-## Continuous Deployment (Push to Main)
-
-The CD pipeline is triggered whenever code is merged into the `main` branch.
-
-### Workflow Steps
-
-1. Checkout the repository source code.
-2. Configure AWS credentials and Terraform.
-3. Provision or update AWS infrastructure using Terraform.
-4. Build frontend and backend Docker images.
-5. Push versioned Docker images to Docker Hub using the Git commit SHA as the image tag.
-6. Configure access to the EKS cluster by updating the kubeconfig.
-7. Deploy or upgrade the application using Helm.
-8. Verify successful rollout of frontend and backend deployments.
-9. Execute smoke tests to confirm application health and connectivity.
-
----
-
-## Deployment Strategy
-
-- Docker images are tagged using the Git commit SHA to provide immutable versioning.
-- Helm performs deployments using `helm upgrade --install`, enabling both initial installation and subsequent upgrades.
-- Rollout checks ensure Kubernetes deployments become healthy before proceeding.
-- Smoke tests validate that frontend and backend services are reachable after deployment.
-
-This approach provides automated validation, infrastructure provisioning, application deployment, and post-deployment verification within a single GitHub Actions workflow.
-
-## Issues Faced & Fixes
-
-### 1. IAM Role Module Compatibility Issue
-
-While provisioning the EKS infrastructure, the latest version of the CloudDrove IAM Role module produced errors during deployment. After troubleshooting, I switched to a previous stable version of the module, which resolved the issue and allowed the infrastructure to be provisioned successfully.
-
-**Fix:**
-
-* Downgraded to a stable module version.
-* Verified successful Terraform deployment with the compatible release.
-
-### 2. Cluster Autoscaler Startup Dependency Issue
-
-During the initial deployment, the Cluster Autoscaler pod was created before the AWS EKS Pod Identity association was fully available. As a result, the Cluster Autoscaler failed to start correctly because it could not assume the required IAM permissions.
-
-**Fix:**
-
-* Performed a rollout restart of the Cluster Autoscaler deployment after Pod Identity became available.
-* Updated the Terraform code to explicitly manage resource dependencies using `depends_on`, ensuring Pod Identity resources are created before deploying the Cluster Autoscaler.
-* Re-tested the deployment and confirmed that the issue no longer occurs.
-
-## Improvements Roadmap
-
-### Helm Chart Enhancements
-
-* Improve chart reusability by introducing additional templating and configurable values.
-* Support easier deployment customization across different environments.
-
-### Terraform Improvements
-
-* Replace remaining hardcoded values with variables and locals.
-* Increase module flexibility and reusability for future deployments.
-
-### Security & Networking
-
-* Integrate Cert-Manager to automate TLS certificate provisioning and renewal.
-* Enable HTTPS for application ingress endpoints.
-
-### Kubernetes Modernization
-
-* Evaluate migration from Ingress resources to the Kubernetes Gateway API.
-* Leverage Gateway API's improved traffic management and extensibility features.
-
-### Observability
-
-* Add Prometheus and Grafana for monitoring and visualization.
-* Implement centralized logging for improved troubleshooting and operational visibility.
-
-
-
-# Manual Deployment Steps
-
-## Prerequisites
-
-* AWS CLI configured
-* Terraform installed
-* Docker installed
-* kubectl installed
-* Helm installed
-* Docker Hub account
-
-## Infrastructure Deployment
-
-1. Clone the repository:
-
-```bash
-git clone <repository-url>
-cd devops-assessment-amandhal
-```
-
-2. Create an S3 bucket for the Terraform remote backend.
-
-3. Configure AWS credentials:
-
-```bash
-aws configure
-```
-
-4. Navigate to the Terraform directory:
-
-```bash
-cd terraform
-```
-
-5. Initialize Terraform:
-
-```bash
-terraform init
-```
-
-6. Provision the infrastructure:
-
-```bash
-terraform apply -auto-approve
-```
-
-This step creates the VPC, EKS cluster, managed node group, IAM roles, Cluster Autoscaler, Metrics Server, NAT GW, NLB and NGINX Ingress Controller.
-
----
-
-## Application Deployment
-
-1. Login to Docker Hub:
-
-```bash
-docker login
-```
-
-2. Build and push the frontend image:
-
-```bash
-cd docker-node-app/frontend
-
-docker build -t <dockerhub-username>/node-app-frontend:<tag> .
-docker push <dockerhub-username>/node-app-frontend:<tag>
-```
-
-3. Build and push the backend image:
-
-```bash
-cd ../backend
-
-docker build -t <dockerhub-username>/node-app-backend:<tag> .
-docker push <dockerhub-username>/node-app-backend:<tag>
-```
+The application was containerized using Docker and published to Docker Hub.
 
 ---
 
 ## Kubernetes Deployment
 
-Deploy the application using Helm:
+The application is deployed through a custom Helm chart that includes:
 
-```bash
-helm upgrade --install node-app ./helm-chart-node-app \
-  -n node-app \
-  --create-namespace \
-  --set image.frontend.tag=<tag> \
-  --set image.backend.tag=<tag>
+### Workload Resources
+
+* Deployments
+* Services
+* ConfigMaps
+* Secrets
+
+### Reliability Features
+
+* Resource Requests & Limits
+* Liveness Probes
+* Readiness Probes
+* Rolling Updates
+
+### Scaling Features
+
+* Horizontal Pod Autoscaler (HPA)
+* Cluster Autoscaler integration
+
+### Operations Features
+
+* NGINX Ingress Controller
+* API Health Check CronJob
+* Prometheus ServiceMonitor
+
+The ServiceMonitor automatically allows Prometheus Operator to discover and scrape application metrics after deployment.
+
+---
+
+## Monitoring Stack
+
+### Prometheus
+
+Used for:
+
+* Application metrics collection
+* Kubernetes metrics collection
+* Node metrics collection
+
+### Grafana Dashboards
+
+Custom dashboards were created for:
+
+* Pod CPU Usage
+* Pod Memory Usage
+* Node CPU Usage
+* Node Memory Usage
+* API Request Count
+* API Latency
+
+<img width="1916" height="585" alt="Screenshot 2026-06-04 183914" src="https://github.com/user-attachments/assets/91dc0f80-bb9a-44ca-a340-311c2a0ef369" />
+<img width="1919" height="595" alt="Screenshot 2026-06-04 184020" src="https://github.com/user-attachments/assets/2ba3b935-7896-493b-8308-8b8ff5fc3613" />
+<img width="1919" height="749" alt="Screenshot 2026-06-04 181928" src="https://github.com/user-attachments/assets/36e2437f-4198-40ad-ba08-e15ea6162f62" />
+<img width="1917" height="492" alt="Screenshot 2026-06-04 181303" src="https://github.com/user-attachments/assets/6f5bb239-5a6e-4759-b023-db8a95bcaa1c" />
+<img width="1919" height="507" alt="Screenshot 2026-06-04 181504" src="https://github.com/user-attachments/assets/f1ce91e7-bbef-4467-ab5a-d68a996b6d1e" />
+
+
+
+---
+
+## Logging Stack (EFK)
+
+The EFK stack consists of:
+
+* Elasticsearch
+* Fluent Bit
+* Kibana
+
+### Log Collection Flow
+
+```text
+Application Logs → Fluent Bit → Elasticsearch → Kibana
 ```
 
-Verify the deployment:
+### Kibana Dashboards
+
+Custom dashboards were created for:
+
+* Error Tracking
+* Request Volume
+* HTTP Status Codes
+* Top Endpoints
+* Application Activity Analysis
+
+---
+
+## CI/CD Pipeline
+
+GitHub Actions is used to implement Continuous Integration and Continuous Deployment.
+
+### CI Pipeline
+
+Triggered on Pull Requests targeting the `main` branch.
+
+#### CI Steps
+
+* Terraform Validate
+* Docker Build Verification
+* Helm/Kubernetes Manifest Linting
+* Artifact Upload
+
+This ensures infrastructure and application changes are validated before merge.
+
+### CD Pipeline
+
+Triggered on Push events to the `main` branch.
+
+#### CD Steps
+
+* Terraform Plan
+* Terraform Apply
+* Docker Build
+* Docker Image Push
+* Helm Deployment
+* Rollout Verification
+* API Smoke Tests
+
+This provides fully automated infrastructure provisioning and application deployment.
+
+---
+
+## Terraform Deployment
+
+### Prerequisites
+
+* AWS CLI installed
+* Terraform installed
+* AWS permissions through aws configure, iam role etc. for EKS deployment
+
+### Remote State Setup
+
+Create an S3 bucket for Terraform state storage.
+
+```bash
+aws s3 mb s3://your-s3-bucket-name --region your-region
+```
+
+Update the bucket name inside:
+
+```bash
+terraform-eks/providers.tf
+```
+
+### Deploy Infrastructure
+
+```bash
+cd terraform-eks
+
+terraform init
+
+terraform validate
+
+terraform plan
+
+terraform apply
+```
+
+---
+
+## Application Deployment
+
+Update your kubeconfig:
 
 ```bash
 aws eks update-kubeconfig \
-  --region <aws-region> \
-  --name <cluster-name>
+  --region <your-aws-region> \
+  --name <your-cluster-name>
+```
+
+Deploy the application:
+
+```bash
+helm install node-app helm-chart-node-app -n node-app --create-namespace=true
+```
+
+Verify deployment:
+
+```bash
 kubectl get pods -n node-app
+
 kubectl get svc -n node-app
+
 kubectl get ingress -n node-app
 ```
 
-# Automated CI/CD Deployment 
+---
 
-The project includes a GitHub Actions workflow that automates infrastructure provisioning, application deployment, and deployment verification.
+## Architecture Overview
 
-## Prerequisites
+```text
+                    GitHub
+                       |
+                       |
+                 GitHub Actions
+                 /            \
+                /              \
+         Terraform           Docker
+              |                 |
+              |                 |
+              v                 v
+         AWS Infrastructure   Docker Hub
+              |
+              |
+              v
+            Amazon EKS
+              |
+   --------------------------------
+   |              |              |
+   v              v              v
+Node App     Prometheus      EFK Stack
+                 |               |
+                 v               v
+             Grafana         Kibana
+```
 
-Configure the following GitHub repository secrets:
+<img width="2460" height="2312" alt="image" src="https://github.com/user-attachments/assets/c4b0a16a-d6ea-421f-9fce-4f937810af8c" />
 
-* `AWS_ACCESS_KEY_ID`
-* `AWS_SECRET_ACCESS_KEY`
-* `DOCKERHUB_USERNAME`
-* `DOCKERHUB_PASSWORD`
 
-## Deployment Process
+---
 
-1. Push changes to a feature branch and create a Pull Request against the `main` branch.
+## Challenges & Solutions
 
-2. The Continuous Integration (CI) pipeline is automatically triggered and performs:
+### 1. CloudDrove IAM Module Compatibility Issue
 
-   * Terraform validation
-   * Docker image build validation
-   * Helm chart linting
+#### Issue
 
-3. After the Pull Request is reviewed and merged into `main`, the Continuous Deployment (CD) pipeline is automatically triggered.
+The latest version of the CloudDrove IAM Role module failed during deployment due to an issue within the module configuration.
 
-4. The CD pipeline performs the following actions:
+#### Solution
 
-   * Provisions or updates AWS infrastructure using Terraform
-   * Builds frontend and backend Docker images
-   * Pushes images to Docker Hub using the Git commit SHA as the image tag
-   * Configures access to the EKS cluster
-   * Deploys or upgrades the application using Helm
-   * Verifies deployment rollouts
-   * Executes smoke tests to validate application availability
+Instead of modifying the module source code maually (which would create issues in CI/CD workflow), an earlier stable version of the module was used.
 
-## Result
+This resolved the issue while preserving upgradeability and automation.
 
-Once code is merged into the `main` branch, the complete infrastructure and application deployment process is executed automatically without requiring any manual intervention.
+---
+
+### 2. Cluster Autoscaler Permission Issue
+
+#### Issue
+
+The Cluster Autoscaler pod continuously crashed due to missing AWS permissions.
+
+Investigation showed:
+
+* IAM role existed
+* Policies were attached
+* Pod Identity Association existed
+
+However, the Autoscaler deployment was starting before the Pod Identity Association was fully created.
+
+#### Solution
+
+A Terraform `depends_on` relationship was added to ensure:
+
+```text
+IAM Role
+    ↓
+Pod Identity Association
+    ↓
+Cluster Autoscaler Deployment
+```
+
+This guaranteed the workload received permissions before startup and eliminated the issue permanently.
+
+---
+
+## Future Improvements
+
+### Enable HTTPS Using cert-manager
+
+Currently the application can be exposed over HTTP.
+
+A production-grade improvement would be integrating cert-manager with Let's Encrypt.
+
+Benefits include:
+
+* Automatic TLS certificate generation
+* Automatic certificate renewal
+* Encrypted communication
+* Improved security posture
+* Production-ready ingress configuration
+
+Implementation would involve:
+
+1. Installing cert-manager
+2. Creating a ClusterIssuer
+3. Integrating Ingress resources with TLS
+4. Automatically provisioning Let's Encrypt certificates
+
+### Additional Enhancements
+
+* ArgoCD GitOps deployment model
+* External Secrets Operator integration
+* Grafana Alerting
+* Multi-environment support (Dev / Stage / Prod)
+* AWS Load Balancer Controller
+
+---
+
+## Technologies Used
+
+### Cloud & Infrastructure
+
+* AWS EKS
+* AWS VPC
+* Terraform
+
+### Containerization
+
+* Docker
+* Docker Hub
+
+### Kubernetes
+
+* Amazon EKS
+* Helm
+* NGINX Ingress Controller
+* Cluster Autoscaler
+
+### Monitoring
+
+* Prometheus
+* Grafana
+
+### Logging
+
+* Elasticsearch
+* Fluent Bit
+* Kibana
+
+### CI/CD
+
+* GitHub Actions
+
+### Application
+
+* Node.js
+* Express.js
+
+---
+
+## References
+
+* https://github.com/terraform-aws-modules/terraform-aws-eks
+* https://github.com/terraform-aws-modules/terraform-aws-vpc
+* https://github.com/clouddrove/terraform-aws-iam-role
+* https://kubernetes.io
+* https://helm.sh
+* https://prometheus.io
+* https://grafana.com
+* https://www.elastic.co
