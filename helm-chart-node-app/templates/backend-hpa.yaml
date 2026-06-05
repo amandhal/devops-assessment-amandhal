@@ -8,11 +8,11 @@ spec:
     kind: Deployment
     name: backend-deployment
   minReplicas: 2
-  maxReplicas: 10
+  maxReplicas: 25
   metrics:
   - type: Resource
     resource:
       name: cpu
       target:
-        type: AverageValue
-        averageValue: 75m
+        type: Utilization
+        averageUtilization: 80

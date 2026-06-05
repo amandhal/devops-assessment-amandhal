@@ -1,0 +1,27 @@
+config:
+  outputs: |
+    [OUTPUT]
+        Name es
+        Match kube.*
+        Host elasticsearch-master
+        HTTP_User elastic
+        HTTP_Passwd your-es-password
+        tls On
+        tls.verify Off
+        Logstash_Format On
+        Logstash_Prefix fluentbit
+        Retry_Limit False
+        Suppress_Type_Name On
+
+    [OUTPUT]
+        Name es
+        Match host.*
+        Host elasticsearch-master
+        HTTP_User elastic
+        HTTP_Passwd your-es-password
+        tls On
+        tls.verify Off
+        Logstash_Format On
+        Logstash_Prefix node
+        Retry_Limit False
+        Suppress_Type_Name On
